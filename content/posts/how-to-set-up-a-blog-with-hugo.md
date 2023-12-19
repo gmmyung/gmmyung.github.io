@@ -3,12 +3,12 @@ title: "How to Set Up a Blog with HUGO"
 date: 2023-12-19T11:44:01Z
 slug: 2023-12-19-how-to-set-up-a-blog-with-hugo
 type: posts
-draft: true
+draft: false
 categories:
-  - Web
+  - Information
 tags:
   - HUGO
-  - Blog
+  - Blogging
 ---
 For passionate side project enthusiasts, documenting and sharing your projects can be a challenging task. Often, projects become a tangled mess with undocumented code, forgotten execution procedures, and hidden gems of experience buried in a labyrinthine GitHub repository. This isn't an ideal scenario for showcasing your hard work and lessons learned.
 ## Why Choose a Custom Blog Setup?
