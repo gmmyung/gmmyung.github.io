@@ -3,7 +3,7 @@ title: "Bare Metal Support of Eerie (Part1)"
 date: 2024-01-17T23:50:08+09:00
 slug: 2024-01-17-bare-metal-support-of-eerie-part1
 type: posts
-draft: true
+draft: false
 categories:
   - Development Log
 tags:
