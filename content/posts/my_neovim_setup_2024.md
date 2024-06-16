@@ -3,7 +3,7 @@ title: "My Neovim setup 2024"
 date: 2024-06-16T13:34:47+09:00
 slug: 2024-06-16-my_neovim_setup_2024
 type: posts
-draft: true
+draft: false
 categories:
   - Information
 tags:
