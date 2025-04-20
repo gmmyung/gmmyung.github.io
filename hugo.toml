@@ -22,10 +22,6 @@ theme = 'smol'
           block = [['\[', '\]'], ['$$', '$$']]
           inline = [['\(', '\)']]
 
-[services]
-  [services.googleAnalytics]
-    id = "G-9CG6X9VNDL"
-
 # Parameters
 [params]
     subtitle = "Born to do fun stuff!"
