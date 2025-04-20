@@ -3,7 +3,7 @@ title = 'About'
 date = 2023-12-18T13:01:57Z
 draft = false
 +++
-Hi, I am a 20y/o South Korean, currently pursuing Bachelor's Degree in mechanical engineering at KAIST!
+Hi, I am a {{< age 2003-05-02 >}} y/o South Korean, currently pursuing Bachelor's Degree in mechanical engineering at KAIST!
 # My Interests
 My biggest interests revolve around having fun by creating new things. These require skill sets such as Mechatronics and Robotics, which I am mainly working on. Despite being a mechanical engineering student, I love to venture into completely new areas such as:
 - Machine learning

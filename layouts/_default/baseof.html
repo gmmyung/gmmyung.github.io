@@ -2,10 +2,14 @@
 <html lang="{{ .Site.LanguageCode | default "en-us" }}">
 <head>
 	{{ $syntax_dark_css := resources.Get "syntax_dark.css" | minify }}
-        {{ $syntax_light_css := resources.Get "syntax_light.css" | minify }}
+  {{ $syntax_light_css := resources.Get "syntax_light.css" | minify }}
+  <link rel="preload stylesheet" as="style" href="{{ $syntax_dark_css.Permalink }}" />
+  <link rel="preload stylesheet" as="style" href="{{ $syntax_light_css.Permalink }}" />
 
-        <link rel="preload stylesheet" as="style" href="{{ $syntax_dark_css.Permalink }}" />
-        <link rel="preload stylesheet" as="style" href="{{ $syntax_light_css.Permalink }}" />
+  {{ if .Param "math" }}
+    {{ partialCached "math.html" . }}
+  {{ end }} 
+
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">

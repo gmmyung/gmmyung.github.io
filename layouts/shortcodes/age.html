@@ -1,0 +1,4 @@
+{{- $date := .Get 0 -}}
+{{- $birth := time $date -}}     {{/* layout, then value    */}}
+{{- $age   := div (sub now.Unix $birth.Unix) 31556926 -}}
+{{- $age -}}
