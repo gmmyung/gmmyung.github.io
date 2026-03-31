@@ -14,7 +14,6 @@ I wanted a place to write down project notes without depending on Medium, Notion
 
 ## Why Hugo
 [Hugo](https://gohugo.io/) is fast, simple, and close to the metal. It is written in Go and uses the standard `html/template` and `text/template` packages, so the whole system is straightforward once you look at a couple of templates.
-![Hugo Logo](https://raw.githubusercontent.com/gohugoio/gohugoioTheme/master/static/images/hugo-logo-wide.svg?sanitize%253Dtrue)
 
 ## A small example
 Here is a simple template that lists pages. If the page title is `Posts`, it shows the date next to each entry:
@@ -41,6 +40,5 @@ Posts are just Markdown files, which is exactly what I wanted. Hugo also has a l
 
 ## Deploying with GitHub Actions
 Deployment is also easy. GitHub Pages and GitHub Actions work well with Hugo, and there are starter workflows that cover most of the setup.
-![hugo actions](/images/hugo_actions.jpeg)
 
 If you want full control over the generated site without building your own CMS, Hugo is a solid option.
