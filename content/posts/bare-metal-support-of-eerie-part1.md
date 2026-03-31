@@ -11,11 +11,11 @@ tags:
   - Bare Metal
   - Embedded
 ---
-# Navigating the Challenges of `#![no-std]` in Eerie
-The quest for `#![no-std]` support in Eerie has proven to be more challenging than anticipated, particularly when delving into embedded development nuances that were not initially apparent.
+# Getting Eerie Running on `#![no_std]`
+I started adding `#![no_std]` support to Eerie expecting the usual embedded cleanup work. Instead, most of the time went into linker issues and missing C runtime pieces that desktop targets quietly provide for you.
 
-# Unraveling Linker errors
-Rust brings many advantages, one of which is freedom from dealing with traditional C/C++ linker errors. However, linking Rust and C in an embedded environment has presented a unique set of challenges. A particularly vexing issue arose when encountering a linker error that looked like this:
+# First blocker: linker errors
+The first real problem showed up when linking Rust and C code on an embedded target. The error looked like this:
 ```
 rust-lld: error: undefined symbol: ceilf
 >>> referenced by ops.h:551 (/Users/gmmyung/Developer/eerie/iree-sys/iree/runtime/src/iree/vm/ops.h:551)
@@ -25,27 +25,36 @@ rust-lld: error: undefined symbol: ceilf
 /src/iree/modules/vmvx/elementwise.c:173)
 >>> elementwise.c.obj:(iree_uk_generic_x32u_op) in archive /Users/gmmyung/Developer/eerie-embedded/target/thumbv7em-none-eabihf/debug/build/iree-sys-a5c1d2279731491b/out/runtime_build/build/lib/libiree.a
 ```
-This pointed to the fact that `libm` was not being linked with the `rust-lld` linker. In non-embedded targets, the Rust linker automatically incorporates the pre-built standard library. However, in embedded targets, standard library symbols are not provided by default, leading to three potential solutions.
+This was a `libm` problem. On non-embedded targets, a lot of this gets pulled in for free. On bare metal, it does not.
+
+At that point I had three options:
 
 1. Specify the exact location of the precompiled binaries of `libm` in the linker flags.
 2. Use the `arm-none-eabi` linker to link the precompiled `libm` binaries.
 3. Rewrite all `libm` functions in Rust.
 
-While the first option seemed obvious, there were nuances, such as precompiled binaries for the `thumbv7em` architecture, requiring manual configuration for the specific FPU type. The second option, involving the `arm-none-eabi ` linker, presented transitive challenges for users setting up the linker in the crate's dependency graph, making it less suitable for minimal configuration distribution. The third option, rewriting libc in Rust, became the chosen path.
+The first option sounds easy until you get into target-specific details like the exact `thumbv7em` variant and FPU settings. The second option works, but it pushes extra linker setup onto downstream users. I wanted something that would be easier to ship as part of the crate, so I ended up going down the Rust reimplementation route.
 
-## Tackling libm linker errors
-Fortunately, multiple implementations of `libc`, `libm`, and other compiler builtins exist. The [libm](https://github.com/rust-lang/libm) crate is a MUSL libm port to Rust, serves as a drop-in replacement for GNU `libm`. Wrapper crates like [externc-libm](https://github.com/HaruxOS/externc-libm) provide `#[no_mangle]` symbols to libm functions.
+## Replacing `libm`
+Luckily, a lot of the groundwork already exists. The [libm](https://github.com/rust-lang/libm) crate ports MUSL's math library to Rust, and wrapper crates such as [externc-libm](https://github.com/HaruxOS/externc-libm) export `#[no_mangle]` symbols that can stand in for the usual C functions.
 
-## Unveiling Further Challenges
-As the journey progressed, another linker error surfaced:
+That got me past the first batch of missing symbols, but it was not the end of the story.
+
+## Then `lroundf` showed up
+The next linker error was:
 ```
 rust-lld: error: undefined symbol: lroundf
 >>> referenced by ops.h:606 (/Users/gmmyung/Developer/eerie/iree-sys/iree/runtime/src/iree/vm/ops.h:606)
 >>> dispatch.c.obj:(vm_cast_f32si32) in archive /Users/gmmyung/Developer/eerie-embedded/target/thumbv7em-none-eabihf/debug/build/iree-sys-a5c1d2279731491b/out/runtime_build/build/lib/libiree.a
 ```
-The `lroundf` function, part of `<tgmath.h>`, an extension to `<math.h>` and `<complex.h>`, posed a challenge. This necessitated the implementation of functions like `lroundf` from scratch.
-## Embarking on libc Implementation
-Various attempts at re-implementing libc in Rust, such as [rusl](https://github.com/anp/rusl), [c-ward](https://github.com/sunfishcode/c-ward), and [relibc](https://gitlab.redox-os.org/redox-os/relibc/-/tree/master?ref_type=heads) used for the [Redox OS project](https://www.redox-os.org), did not support bare metal. The need arose to implement libc functions from the ground up. [Tinyrlibc](https://github.com/rust-embedded-community/tinyrlibc), a `libc` implementation for embedded targets, served as a starting point, though incomplete. The journey began with implementing fundamental functions like `memcpy`, `memset`, and `memcmp`, ensuring compatibility with the C standard. Additionally, `malloc` and `free` functions, requiring `extern crate alloc` in Rust crates, were successfully implemented.
+`lroundf` comes from the C math stack as well, and in my case it was easier to implement the missing pieces than to keep chasing toolchain-specific ways to link them in.
 
-# Concluding Strides
-While the path to implementing libc in Rust posed numerous challenges, solutions were found and basic libc functions were successfully implemented. The current workaround involves manual linking using the GNU toolchain, but continuous efforts towards a pure Rust libc implementation promise a smoother user experience. The journey continues, with plans to implement more functions in the pursuit of progress.
+## Filling in libc pieces
+There have been several attempts at implementing libc in Rust, including [rusl](https://github.com/anp/rusl), [c-ward](https://github.com/sunfishcode/c-ward), and [relibc](https://gitlab.redox-os.org/redox-os/relibc/-/tree/master?ref_type=heads) from the [Redox OS project](https://www.redox-os.org). None of them quite matched what I needed for bare metal.
+
+[Tinyrlibc](https://github.com/rust-embedded-community/tinyrlibc) was a useful starting point, even though it is still incomplete. From there I started implementing the basics myself: `memcpy`, `memset`, `memcmp`, and eventually allocator-related pieces like `malloc` and `free` with `extern crate alloc`.
+
+## Where this left me
+Right now the practical workaround is still manual linking with the GNU toolchain. That is good enough to keep moving, but the longer-term goal is the same: make the embedded path work without asking users to hand-assemble their toolchain setup.
+
+There is still a lot left to implement, but at least the problem is clearer now than it was when I started.

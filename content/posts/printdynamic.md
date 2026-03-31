@@ -13,21 +13,21 @@ tags:
   - Leptos
 ---
 
-Modern robotics workflows lean heavily on simulation—**Gazebo**, **Mujoco**, **Isaac Sim**, and others—long before a single screw is tightened.  
-3‑D‑printed components dominate proof‑of‑concept builds because they **reduce cost and iteration time**, yet we often treat them as *massless* placeholders in URDF or SDF files.  
-Neglecting the real **mass, center of mass (COM), and inertia tensor** may appear harmless, but the error propagates into:
+In robotics, simulation usually starts long before the hardware is finished. A lot of those early parts are 3D-printed, and in practice they often get dropped into URDF or SDF files with guessed mass properties or no mass properties at all.
+
+That shortcut is fine until it is not. Bad estimates for mass, center of mass (COM), and inertia can show up as:
 
 * unstable controllers that *seem* correct in simulation,  
 * mis‑tuned balance algorithms in legged or mobile platforms,  
 * gripper payload limits that differ from reality.
 
-This post introduces **PrintDynamic**, a small Rust → WASM application that parses G‑code and computes **true dynamic parameters** of an extruded part. We will explore why the project is written with the **Leptos** front‑end framework, and how you can integrate it into your own workflow.
+That was the motivation for **PrintDynamic**, a small Rust-to-WASM tool that parses G-code and estimates the actual dynamic properties of an extruded part.
 
 For the complete source code, see [GitHub](https://github.com/gmmyung/printdynamic).
 
 ---
 
-## 1. From G‑code to Tensors: Methodological Notes
+## 1. From G-code to tensors
 
 PrintDynamic treats every extrusion move as either:
 
@@ -46,7 +46,7 @@ pub trait Segment {
 }
 ```
 
-The underlying integrals are analytic:
+The integrals are analytic:
 
 * **LineSeg**: slender‑rod inertia with endpoints \(\mathbf{r}_0, \mathbf{r}_1\), shifted to origin.  
 * **ArcSeg**: plane circular arc of radius \(r\) swept by angle \(\Delta\theta\).
@@ -57,11 +57,11 @@ After summing all segments we apply the **parallel‑axis theorem** to obtain th
 I_{\mathrm{COM}} = I_0 - m\bigl(\| \mathbf{c}\|^2\, \mathbf{I}_{3} - \mathbf{c}\,\mathbf{c}^\top\bigr)
 \]
 
-where \(I_0\) is the inertia about the printer origin and i\(\mathbf{c}\) is the COM.
+where \(I_0\) is the inertia about the printer origin and \(\mathbf{c}\) is the COM.
 
 ---
 
-## 2. Why Leptos + WebAssembly?
+## 2. Why Leptos + WebAssembly?
 
 | Requirement                         | Traditional SPA | Leptos (Rust) |
 |------------------------------------|-----------------|---------------|
@@ -70,15 +70,15 @@ where \(I_0\) is the inertia about the printer origin and i\(\mathbf{c}\) is the
 | **Single‑file deployment**         | ✔︎              | ✔︎           |
 | **Type safety from parser → UI**   | Weak            | End‑to‑end    |
 
-Leptos provides a **reactive component model** comparable to React or Solid, but runs on Rust’s type system. Printing enthusiasts therefore get:
+I picked Leptos because the parser and math code were already in Rust, and I did not want to split the project into "real logic in Rust" plus "UI glue in JavaScript." That gives me:
 
 * **compile once** to WASM and host on GitHub Pages—no backend,
 * the same business logic reused in a CLI or desktop GUI,
-* the borrow checker ensuring the async file‑loader and math kernels remain race‑free.
+* end-to-end type checking from the parser to the UI.
 
 ---
 
-## 3. Project Structure
+## 3. Project structure
 
 ```
 printdynamic/
@@ -96,9 +96,9 @@ printdynamic/
 
 ---
 
-## 4. Usage Guide
+## 4. Usage
 
-### 4.1. Online Demo
+### 4.1. Online demo
 
 1. Open **<https://gmmyung.github.io/printdynamic/>**.  
 2. Click **“Select G‑code file.”**  
@@ -110,7 +110,7 @@ printdynamic/
    * inertia tensor about origin,  
    * inertia tensor about COM.
 
-### 4.2. Local Build
+### 4.2. Local build
 
 ```bash
 rustup component add wasm32-unknown-unknown
@@ -128,9 +128,9 @@ trunk build --release --public-url /printdynamic/
 
 The `dist/` folder is now portable to any static host (GitHub Pages, Netlify, S3, …).
 
-### 5.3. CLI Integration (optional)
+### 4.3. CLI integration
 
-Because the parsing core is pure Rust, you can embed it in a headless tool:
+Because the parsing core is plain Rust, it is easy to reuse in a headless tool:
 
 ```rust
 use printdynamic::{parse_segments, Segment};
@@ -145,9 +145,8 @@ println!("Mass: {:.2} g", m_total);
 
 ---
 
-## 5. Conclusion
+## 5. Closing
 
-Accurate dynamics for 3‑D‑printed parts close the loop between *low‑cost prototyping* and *high‑fidelity simulation*.  
-By pairing Rust’s numerics with Leptos’s ergonomic front‑end, **PrintDynamic** lets engineers obtain trustworthy mass properties **before** the printer even heats up. Drop in a file, fetch the numbers, and feed them straight into your URDF or parameter server—no more guessing.
+The point of PrintDynamic is simple: if a printed part is going into simulation, I want better numbers than "close enough." Parsing G-code turned out to be a practical way to get there without building a full CAD pipeline.
 
-Questions or feature requests? Open an issue or reach out on the project GitHub. Happy printing and simulating!
+If you want to try it or add features, the source is on GitHub.

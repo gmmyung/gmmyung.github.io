@@ -12,17 +12,27 @@ tags:
   - IREE
 ---
 # What is Eerie?
-[Eerie](https://github.com/gmmyung/eerie) is a Rust binding for IREE, an end-to-end compiler and runtime based on MLIR (Multi-Level Intermediate Representation). It serves as a transformative bridge for Machine Learning (ML) models, converting them into a unified Intermediate Representation (IR). For those unfamiliar with the ML compiler space, this process involves exporting models from frontend frameworks such as PyTorch, TensorFlow, and JAX into MLIR as a series of tensor operations. Subsequently, these models are compiled into IREE's own IR. The runtime executes the model by interpreting the IR. For more information, you can refer to the [IREE Website](https://iree.dev). In essence, Eerie provides a fully modular, ahead-of-time (AOT) compiled, lightweight ML engine!/
+[Eerie](https://github.com/gmmyung/eerie) is a Rust binding for IREE, a compiler and runtime stack built on MLIR. The short version is that you can take models from frameworks like PyTorch, TensorFlow, or JAX, lower them through MLIR, compile them with IREE, and run the result through a fairly small runtime.
+
+If you are not deep into ML compiler tooling, IREE is worth thinking of as infrastructure rather than a framework. It gives you a way to move from model code to something that can actually run on the target you care about.
+
 IREE can be seen as the LLVM of ML compilers. It supports many different backends including:
 - Vulkan, CUDA, Metal
 - ROCm, WebGPU, AMD AIE (experimental)
 - CPU (ARM, x86, RISC-V)
 - Linux, Windows, macOS, Android, iOS, Bare metal
 
-Adding to that, the binary size can be as low as 30KB on embedded systems. Indeed, IREE can run the same model using a microcontroller, an iPhone, and a Nvidia graphics card, which succeeds Rust's ethos: "Write once, Compile everywhere".
+The runtime can also get surprisingly small on embedded targets. That part is what initially caught my attention.
+
 ## Why Rust?
-I wanted to make something cool with IREE, and discovered that IREE and Rust make a lot of sense together. Rust has a few ML frameworks such as [Candle](https://github.com/huggingface/candle) and [Burn](https://github.com/tracel-ai/burn), but none of them fully supports JIT/AOT kernel fusion. By using the IREE compiler/runtime, one can build a full blown ML library that can seamlessly generate AOT compiled models in runtime using the powerful macro system of Rust. Also, Rust is used extensively in the embedded space, which means that IREE can smoothly integrate into the Embedded Rust ecosystem. To top it off, it can also be used to run ML models on the web using Rust compiled in WASM, leveraging the WebGPU API to accelerate operations.
-### Solving the AI fragmentation problem
-There is a well-known fragmentation issue in the ML space: machine learning models are written in Python with libraries like PyTorch, TensorFlow, and JAX, which are written in C++. These libraries also use CUDA/ROCm and occasionally Numba or Triton. This situation is a hot mess. Mojo attempts to fix this using a whole new systems language that utilizes MLIR, but there is already a compiled language that runs pretty much everywhere: Rust. I truly believe that merging IREE and Rust has the potential to reshape how neural nets are written and executed.
-# Unveiling the Work 
-[Eerie](https://github.com/gmmyung/eerie) is what I have been working on for the past few months. The library is still experimental and needs a bit more polishing, but feel free to try it out and provide your valuable feedback on the GitHub Issues page!
+Rust and IREE fit together better than I expected. Rust already has ML projects like [Candle](https://github.com/huggingface/candle) and [Burn](https://github.com/tracel-ai/burn), but I was interested in the compiler/runtime side of the stack: ahead-of-time compilation, target portability, and a runtime that could plausibly work on embedded systems as well as desktops.
+
+Rust also already lives in a lot of the environments I care about, especially embedded and systems work. That makes a Rust binding around IREE feel more natural than trying to bolt it onto a language stack that is not already used there.
+
+### The fragmentation problem
+The ML toolchain is fragmented in a very practical way. You write models in Python, the heavy lifting happens in C++ or GPU runtimes, deployment depends on which backend you target, and the final story often changes again on embedded or web platforms.
+
+I do not think Eerie magically fixes all of that, but I do think Rust is a good place to experiment with a cleaner stack around IREE.
+
+# Current state
+[Eerie](https://github.com/gmmyung/eerie) is the result of that experiment so far. It is still early and still rough around the edges, but it is usable enough to explore the idea seriously. If you try it and hit something broken, feel free to open an issue.

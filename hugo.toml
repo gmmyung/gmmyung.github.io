@@ -24,6 +24,8 @@ theme = 'smol'
 
 # Parameters
 [params]
+    author = "Gyungmin Myung"
+    authorEmail = "gmmyung@kaist.ac.kr"
     subtitle = "Born to do fun stuff!"
     dateFmt = "02.01.2006 15:04"
 

@@ -11,8 +11,8 @@ tags:
   - Rust
   - Unsafe
 ---
-# How did I encounter this problem?
-While building [Eerie](https://github.com/gmmyung/eerie), a Rust binding for IREE, I encountered a seemingly precarious aspect of a C API:
+# Where this came from
+While working on [Eerie](https://github.com/gmmyung/eerie), I ran into a C API that lets the caller pass in an allocator:
 ```c
 // Creates a new session forced to use the given |device|.
 // This bypasses any device enumeration performed by the loaded modules but
@@ -31,17 +31,21 @@ IREE_API_EXPORT iree_status_t iree_runtime_session_create_with_device(
     const iree_runtime_session_options_t* options, iree_hal_device_t* device,
     iree_allocator_t host_allocator, iree_runtime_session_t** out_session);
 ```
-Pass the memory allocator? Sure, we could just use:
+
+At first glance, the obvious answer is to hand it the default C allocator:
 ```c
 // Default C allocator controller using malloc/free.
 IREE_API_EXPORT iree_status_t
 iree_allocator_system_ctl(void* self, iree_allocator_command_t command,
                           const void* params, void** inout_ptr);
 ```
-However, it feels dubious to interoperate between the Rust allocator and the system default allocator. The Rust user might use custom malloc implementations such as [Jemalloc](https://github.com/jemalloc/jemalloc), or the user might be using an environment such as bare metal, where there is no global allocator at all. This [Redis Dev Blog Article](https://redis.com/blog/using-the-redis-allocator-in-rust/) also encountered a similar problem, and points out similar roadblocks. So, I thought that I could easily solve the problem by writing a wrapper function to the [Rust Allocator](https://doc.rust-lang.org/std/alloc/trait.Allocator.html), but things were a bit more complicated than expected.
+
+That works, but it is not a great fit if the Rust side is using a custom allocator such as [Jemalloc](https://github.com/jemalloc/jemalloc), or if the target is bare metal and there is no comfortable "system allocator" story at all. The [Redis allocator write-up](https://redis.com/blog/using-the-redis-allocator-in-rust/) runs into a similar issue.
+
+My first thought was: fine, just wrap Rust's allocator interface and pass that through. It turned out to be a bit more awkward than that.
 
 ## Rust std::alloc::Allocator
-Rust's standard library defines the `allocate`/`free` function as
+Rust's standard library defines allocation like this:
 ```rust
 pub unsafe trait Allocator {
     // Required methods
@@ -56,9 +60,22 @@ The struct Layout is defined as:
 ```rust
 pub const fn from_size_align(size: usize, align: usize) -> Result<Self, LayoutError> 
 ```
-This implies that the size and alignment of the memory block should be known at runtime when both allocating and deallocating the memory. In C/C++, this information is not needed when freeing the memory block. There are several ways to overcome this problem. The first one is to maintain a static hashmap that stores all the memory sizes, but this comes with a performance penalty. The second workaround is allocating extra memory to store the size, but it also comes with its own issues.
-## Memory alignment fix
-If we try to append the memory size to the memory block, it is impossible to retrieve the size from the pointer, since the caller does not know where that size value is located. Thus, the memory size should be prepended to the memory block. Now, here comes another issue. In IREE, all allocated memory blocks should be aligned at a platform-specific value since SIMD operations are affected by alignment. However, it is impossible to allocate a partially aligned value; for example, the memory is offset from 16-byte alignment by 3 bytes, so only addresses such as 0x3, 0x13, 0x23 are possible. The fix is to allocate `ALIGNMENT` bytes more memory and store the size of the value `ALIGNMENT` bytes before the memory block's pointer. Here is the fixed version of the final code:
+
+The catch is that Rust needs the size and alignment again when deallocating. C APIs usually do not. Once a foreign library hands you back a raw pointer to free, that metadata is gone unless you store it yourself.
+
+There are a couple of ways to deal with that:
+
+1. Keep a side table that maps pointers to allocation sizes.
+2. Store the size alongside the allocation itself.
+
+The first option works, but I did not love paying for a global lookup on every free. So I went with the second option.
+
+## Fixing alignment
+Appending the size to the end of the block does not help, because the caller only gives you the original pointer back. The size has to live before the pointer.
+
+That immediately creates an alignment problem. IREE expects allocations to follow platform-specific alignment requirements for SIMD-friendly access. If I just shove metadata in front of the returned pointer, I can easily break that alignment.
+
+The fix was to allocate `ALIGNMENT` bytes of extra space, store the size `ALIGNMENT` bytes before the returned pointer, and make sure the pointer I hand back still satisfies the required alignment. The final version looked like this:
 ```rust
 unsafe extern "C" fn rust_allocator_ctl(
     _self_: *mut c_void,
@@ -94,4 +111,5 @@ unsafe extern "C" fn rust_allocator_ctl(
     }
 }
 ```
-While this solution introduces some overhead, it is minimal compared to the CPU cycles consumed by std::alloc::alloc itself. Problem solved.
+
+This does add a little overhead, but it is tiny compared to the cost of the allocation itself, and it keeps the allocator boundary explicit instead of relying on allocator mixing by accident.
