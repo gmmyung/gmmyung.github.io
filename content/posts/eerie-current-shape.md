@@ -12,7 +12,6 @@ tags:
   - IREE
   - Bare Metal
 ---
-# Eerie Reaches v0.5
 When I first wrote about [Eerie](https://github.com/gmmyung/eerie), it was still mostly an experiment. The goal was to build Rust bindings around IREE and see whether the compiler/runtime stack could fit naturally into a Rust project.
 
 FFI calls compiling only proved that the C API was reachable from Rust. The harder part was deciding which parts should become safe Rust APIs and which parts should stay behind an unsafe boundary.
