@@ -3,7 +3,7 @@ title: "How to Set Up a Blog with Hugo"
 date: 2023-12-19T11:44:01Z
 slug: 2023-12-19-how-to-set-up-a-blog-with-hugo
 type: posts
-draft: false
+draft: true
 categories:
   - Information
 tags:
